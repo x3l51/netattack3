@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import nmap
 import sys
 import netifaces
@@ -7,7 +9,9 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR) # scapy, psst!
 from scapy.all import *
 import subprocess
 import os
-import printings
+
+# local imports
+from src import printings
 
 RED = "\033[1;31m"  
 NORMAL = "\033[0;0m"
@@ -46,7 +50,10 @@ class HostScan(object):
         else:
             result = nm.scan(hosts=ip_range, arguments="-sP")
 
-        for _, item in result["scan"].iteritems():
+        print(result)
+        print(result["scan"])
+
+        for _, item in result["scan"].items():
             if item["status"]["state"] == "up":
                 try:
                     ip = item["addresses"]["ipv4"]
@@ -241,12 +248,8 @@ class WifiScan(object):
             elif strength <= 100:
                 strength = "{G}{strength}{N}".format(G=GREEN, strength=strength, N=NORMAL)
 
-            print("{bssid}   {ch}{ch_s}{enc}   {stren}{str_s}dB  {wps}{wps_s}{essid}".format(bssid=bssid, ch=channel, ch_s=channel_space,
-                                                                                         enc=encryption, essid=essid, stren=strength,
-                                                                                         wps=wps, wps_s=wps_space, str_s=strength_space))
+            print("{bssid}   {ch}{ch_s}{enc}   {stren}{str_s}dB  {wps}{wps_s}{essid}".format(bssid=bssid, ch=channel, ch_s=channel_space, enc=encryption, essid=essid, stren=strength, wps=wps, wps_s=wps_space, str_s=strength_space))
         else:
-	    print("{bssid}   {ch}{ch_s}{enc}   {stren}{str_s}    {wps}{wps_s}{essid}".format(bssid=bssid, ch=channel, ch_s=channel_space,
-                                                                                         enc=encryption, essid=essid, stren=strength,
-                                                                                         wps=wps, wps_s=wps_space, str_s=strength_space))
+	        print("{bssid}   {ch}{ch_s}{enc}   {stren}{str_s}    {wps}{wps_s}{essid}".format(bssid=bssid, ch=channel, ch_s=channel_space, enc=encryption, essid=essid, stren=strength, wps=wps, wps_s=wps_space, str_s=strength_space))
     def get_access_points(self):
         return self.access_points
