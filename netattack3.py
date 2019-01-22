@@ -63,7 +63,7 @@ def get_option():
     '''
     while True:
         raw_option = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED)).lower()
-        if raw_option == "help":
+        if raw_option == "help" or raw_option == "exit":
             return raw_option
 
         try:
@@ -100,6 +100,11 @@ def handle_option(option):
         arp_kick()
     if option == "help":
         printings.print_help()
+        printings.print_options()
+        get_option()
+    if option == "exit":
+        sys.exit()
+        clear_screen()
 
 def clear_screen():
     '''
