@@ -1,10 +1,12 @@
+#!/usr/bin/env python3
+
 from scapy.all import *
 
 class DNSSniff(object):
     def __init__(self, local_ip, interface):
         self.local_ip = local_ip
         self.ip_len = 0
-	self.interface = interface
+        self.interface = interface
         self.last_ip = ""
 
     def dns_sniff(self):
