@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-RED = "\033[1;31m"  
+RED = "\033[1;31m"
 BLUE = "\033[1;34m"
 CYAN = "\033[1;36m"
 GREEN = "\033[1;32m"
@@ -9,11 +9,11 @@ NORMAL = "\033[0;0m"
 BOLD = "\033[;1m"
 
 def print_banner():
-    print("{Y}    _   _________________  _______________   ________ __{R}___ \n" \
-          "{Y}   / | / / ____/_  __/   |/_  __/_  __/   | / ____/ //_/{R}__ \\\n" \
-          "{Y}  /  |/ / __/   / / / /| | / /   / / / /| |/ /   / ,<  _{R}_/ /\n" \
-          "{Y} / /|  / /___  / / / ___ |/ /   / / / ___ / /___/ /| |{R}/ __/ \n" \
-          "{Y}/_/ |_/_____/ /_/ /_/  |_/_/   /_/ /_/  |_\____/_/ |_{R}/____/{N}\n" \
+    print("{Y}    _   _________________  _______________   ________ __{R}  _ _ _ \n" \
+          "{Y}   / | / / ____/_  __/   |/_  __/_  __/   | / ____/ //_/{R} / / / / \n" \
+          "{Y}  /  |/ / __/   / / / /| | / /   / / / /| |/ /   / ,<   {R}/ / / /\n" \
+          "{Y} / /|  / /___  / / / ___ |/ /   / / / ___ / /___/ /| |{R} / / / / \n" \
+          "{Y}/_/ |_/_____/ /_/ /_/  |_/_/   /_/ /_/  |_\____/_/ |_|{R}/_/_/_/{N}\n" \
           "                   {R}b y   c h r i z a t o r{N}\n\n".format(Y=YELLOW, N=NORMAL, R=RED))
 
 def print_options():
@@ -35,9 +35,9 @@ def print_help():
 
   -> Host Scan
      ---------
-     It will search your network for online hosts using python-nmap. It prints out 
+     It will search your network for online hosts using python-nmap. It prints out
      MAC, IP, Hostaname and Vendor Informations for each host found.
-     
+
   -> Advanced Host Scan
      ------------------
      It does basically the same as the Host Scan, but collects more detailed informations such as
@@ -46,7 +46,7 @@ def print_help():
   -> Wifi Scan
      ---------
      This obviously scans your area for available WiFi-Networks by sniffing for beacon frames.
-     The following informations will be extracted from the beacon frame: 
+     The following informations will be extracted from the beacon frame:
      ESSID, BSSID, Encryption Type, Channel, WPS and Signal Strength
 
 -----------
@@ -133,4 +133,3 @@ def deauth_all():
           "| | | / _ \/ _` | | | | __| '_ \______|  _  | | |\n" \
           "| |/ /  __/ (_| | |_| | |_| | | |     | | | | | |\n" \
           "|___/ \___|\__,_|\__,_|\__|_| |_|     \_| |_/_|_|\n")
-
